@@ -40,9 +40,9 @@ def verify(req: TokenRequest, response: Response):
                 "verify_aud": True,
             },
         )
-    except jwt.PyJWTError:
+    except jwt.PyJWTError as e:
         response.status_code = 401
-        return {"valid": False}
+        return {"valid": False, "_debug_error": str(e), "_debug_type": type(e).__name__}
 
     response.status_code = 200
     return {
@@ -56,3 +56,19 @@ def verify(req: TokenRequest, response: Response):
 @app.get("/")
 def root():
     return {"status": "ok", "service": "OIDC Token Verification Service"}
+
+
+@app.post("/debug-decode")
+def debug_decode(req: TokenRequest):
+    """TEMPORARY debug endpoint: shows raw unverified claims + header."""
+    import hashlib
+    header = jwt.get_unverified_header(req.token)
+    claims = jwt.decode(req.token, options={"verify_signature": False})
+    key_hash = hashlib.sha256(PUBLIC_KEY.encode()).hexdigest()
+    return {
+        "header": header,
+        "claims": claims,
+        "expected_issuer": ISSUER,
+        "expected_audience": AUDIENCE,
+        "public_key_sha256": key_hash,
+    }
