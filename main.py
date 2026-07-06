@@ -2,7 +2,7 @@ import jwt
 from fastapi import FastAPI, Response
 from pydantic import BaseModel
 
-app = FastAPI(title="OIDC Token Verification Service")
+app = FastAPI()
 
 # ---- Assigned values ----
 ISSUER = "https://idp.exam.local"
@@ -19,32 +19,32 @@ dQIDAQAB
 -----END PUBLIC KEY-----"""
 
 
-class TokenRequest(BaseModel):
+class VerifyRequest(BaseModel):
     token: str
 
 
 @app.post("/verify")
-def verify(req: TokenRequest, response: Response):
+def verify(body: VerifyRequest, response: Response):
+    token = body.token
     try:
         claims = jwt.decode(
-            req.token,
+            token,
             PUBLIC_KEY,
             algorithms=["RS256"],
-            issuer=ISSUER,
             audience=AUDIENCE,
+            issuer=ISSUER,
             options={
                 "require": ["exp", "iss", "aud"],
-                "verify_signature": True,
                 "verify_exp": True,
                 "verify_iss": True,
                 "verify_aud": True,
+                "verify_signature": True,
             },
         )
-    except jwt.PyJWTError:
+    except jwt.PyJWTError as e:
         response.status_code = 401
-        return {"valid": False}
+        return {"valid": False, "debug_error": str(e)}  # TEMP: remove before final submission
 
-    response.status_code = 200
     return {
         "valid": True,
         "email": claims.get("email"),
@@ -54,6 +54,5 @@ def verify(req: TokenRequest, response: Response):
 
 
 @app.get("/")
-def root():
-    return {"status": "ok", "service": "OIDC Token Verification Service"}
-
+def health():
+    return {"status": "ok"}
